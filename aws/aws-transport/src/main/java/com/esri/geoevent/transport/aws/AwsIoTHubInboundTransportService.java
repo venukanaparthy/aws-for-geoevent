@@ -27,12 +27,13 @@ package com.esri.geoevent.transport.aws;
 import com.esri.ges.core.component.ComponentException;
 import com.esri.ges.transport.Transport;
 import com.esri.ges.transport.TransportServiceBase;
+import com.esri.ges.transport.util.XmlTransportDefinition;
 
 public class AwsIoTHubInboundTransportService extends TransportServiceBase
 {
   public AwsIoTHubInboundTransportService()
   {
-    definition = new AwsIoTHubInboundTransportDefinition();
+    definition = new XmlTransportDefinition(getResourceAsStream("aws-inbound-transport-definition.xml"));
   }
 
   @Override

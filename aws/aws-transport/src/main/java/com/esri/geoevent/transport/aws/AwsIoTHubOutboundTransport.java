@@ -33,26 +33,22 @@ import com.amazonaws.services.iot.client.AWSIotQos;
 import com.esri.geoevent.transport.aws.AwsIoTHubUtil.KeyStorePasswordPair;
 import com.esri.ges.core.component.ComponentException;
 import com.esri.ges.core.component.RunningState;
-import com.esri.ges.core.geoevent.GeoEvent;
 import com.esri.ges.framework.i18n.BundleLogger;
 import com.esri.ges.framework.i18n.BundleLoggerFactory;
-import com.esri.ges.transport.GeoEventAwareTransport;
 import com.esri.ges.transport.OutboundTransportBase;
 import com.esri.ges.transport.TransportDefinition;
 import com.esri.ges.util.Validator;
 
-public class AwsIoTHubOutboundTransport extends OutboundTransportBase implements GeoEventAwareTransport
+public class AwsIoTHubOutboundTransport extends OutboundTransportBase
 {
   // logger
   private static final BundleLogger LOGGER                 = BundleLoggerFactory.getLogger(AwsIoTHubOutboundTransport.class);
 
-  // connection properties
-  private String                    iotServiceType         = "";  
-  private String                    deviceIdGedName        = "";
+  // transport properties
+  private String                    iotServiceType         = "";    
   private String                    deviceIdFieldName      = "";
   
-  private String 					clientEndpoint		   = "";
-  private String				    rootCertificate		   = "";
+  private String 					clientEndpoint		   = "";  
   private String					x509Certificate		   = "";
   private String 					privateKey			   = "";
   private String 					topicName			   = "";
@@ -66,6 +62,11 @@ public class AwsIoTHubOutboundTransport extends OutboundTransportBase implements
   // event hub client
   AWSIotMqttClient 					awsClient			   = null;
   AWSIotMessage 					iotMessage			   = null;	
+  
+  public enum AwsIoTServiceType {
+	  IOT_HUB,
+	  IOT_DEVICE
+   };
 
   public AwsIoTHubOutboundTransport(TransportDefinition definition) throws ComponentException
   {
@@ -75,6 +76,7 @@ public class AwsIoTHubOutboundTransport extends OutboundTransportBase implements
   @Override
   public synchronized void start()
   {
+	try{ 	  
     switch (getRunningState())
     {
       case STARTING:
@@ -85,58 +87,63 @@ public class AwsIoTHubOutboundTransport extends OutboundTransportBase implements
 
     setRunningState(RunningState.STARTING);
     setup();
+    setRunningState(RunningState.STARTED);
+    
+	}catch(Exception e){
+		LOGGER.error("INIT_ERROR", e);		
+		setErrorMessage(e.getMessage());
+		setRunningState(RunningState.ERROR);
+	}
   }
 
-  public void readProperties()
-  {
-    try
-    {
+  private void readProperties()
+  {  
       boolean somethingChanged = false;
 
-      if (hasProperty(AwsIoTHubOutboundTransportDefinition.IOT_SERVICE_TYPE_PROPERTY_NAME))
+      if (hasProperty("iotservicetype"))
       {
         // IoT Service Type
-        String newIotServiceType = getProperty(AwsIoTHubOutboundTransportDefinition.IOT_SERVICE_TYPE_PROPERTY_NAME).getValueAsString();
+        String newIotServiceType = getProperty("iotservicetype").getValueAsString();
         if (!iotServiceType.equals(newIotServiceType))
         {
           iotServiceType = newIotServiceType;
           somethingChanged = true;
         }
       }
-      // Client End point
-      if (hasProperty(AwsIoTHubOutboundTransportDefinition.CLIENT_ENDPOINT_PROPERTY_NAME))
+      // Device Id Field Name
+      if (hasProperty("deviceid"))
       {
-        String newClientEndpoint  = getProperty(AwsIoTHubOutboundTransportDefinition.CLIENT_ENDPOINT_PROPERTY_NAME).getValueAsString();
+        String newDeviceIdFieldName = getProperty("deviceid").getValueAsString();
+        if (!deviceIdFieldName.equals(newDeviceIdFieldName))
+        {
+          deviceIdFieldName = newDeviceIdFieldName;
+          somethingChanged = true;
+        }
+      }
+      // Client End point
+      if (hasProperty("endpoint"))
+      {
+        String newClientEndpoint  = getProperty("endpoint").getValueAsString();
         if (!clientEndpoint.equals(newClientEndpoint))
         {
           clientEndpoint = newClientEndpoint;
           somethingChanged = true;
         }
-      }
-      //rootCA
-      if (hasProperty(AwsIoTHubOutboundTransportDefinition.ROOT_CA_PROPERTY_NAME))
-      {
-        String newRootCA  = getProperty(AwsIoTHubOutboundTransportDefinition.ROOT_CA_PROPERTY_NAME).getValueAsString();
-        if (!rootCertificate.equals(newRootCA))
-        {
-         rootCertificate = newRootCA;
-         somethingChanged = true;
-        }
       }      
       //X.509 certificate
-      if (hasProperty(AwsIoTHubOutboundTransportDefinition.X509_CERTIFICATE_PROPERTY_NAME))
+      if (hasProperty("X509certificate"))
       {
-        String newX509Cert  = getProperty(AwsIoTHubOutboundTransportDefinition.X509_CERTIFICATE_PROPERTY_NAME).getValueAsString();
+        String newX509Cert  = getProperty("X509certificate").getValueAsString();
         if (!x509Certificate.equals(newX509Cert))
         {
          x509Certificate = newX509Cert;
          somethingChanged = true;
         }
       }
-     //private key
-      if (hasProperty(AwsIoTHubOutboundTransportDefinition.PRIVATE_KEY_PROPERTY_NAME))
+      //private key
+      if (hasProperty("privateKey"))
       {
-        String newPrivateKey  = getProperty(AwsIoTHubOutboundTransportDefinition.PRIVATE_KEY_PROPERTY_NAME).getValueAsString();
+        String newPrivateKey  = getProperty("privateKey").getValueAsString();
         if (!privateKey.equals(newPrivateKey))
         {
          privateKey = newPrivateKey;
@@ -144,53 +151,21 @@ public class AwsIoTHubOutboundTransport extends OutboundTransportBase implements
         }
       }
       //topic name
-      if (hasProperty(AwsIoTHubOutboundTransportDefinition.TOPIC_NAME_PROPERTY_NAME))
+      if (hasProperty("topic"))
       {
-        String newTopicName  = getProperty(AwsIoTHubOutboundTransportDefinition.TOPIC_NAME_PROPERTY_NAME).getValueAsString();
+        String newTopicName  = getProperty("topic").getValueAsString();
         if (!topicName.equals(newTopicName))
         {
          topicName = newTopicName;
          somethingChanged = true;
         }
-      }     
-      // Device Id GED Name
-      if (hasProperty(AwsIoTHubOutboundTransportDefinition.DEVICE_ID_GED_NAME_PROPERTY_NAME))
-      {
-        String newGEDName = getProperty(AwsIoTHubOutboundTransportDefinition.DEVICE_ID_GED_NAME_PROPERTY_NAME).getValueAsString();
-        if (!deviceIdGedName.equals(newGEDName))
-        {
-          deviceIdGedName = newGEDName;
-          somethingChanged = true;
-        }
-      }
-      // Device Id Field Name
-      if (hasProperty(AwsIoTHubOutboundTransportDefinition.DEVICE_ID_FIELD_NAME_PROPERTY_NAME))
-      {
-        String newDeviceIdFieldName = getProperty(AwsIoTHubOutboundTransportDefinition.DEVICE_ID_FIELD_NAME_PROPERTY_NAME).getValueAsString();
-        if (!deviceIdFieldName.equals(newDeviceIdFieldName))
-        {
-          deviceIdFieldName = newDeviceIdFieldName;
-          somethingChanged = true;
-        }
-      }
-      propertiesNeedUpdating = somethingChanged;
-    }
-    catch (Exception ex)
-    {
-      LOGGER.error("INIT_ERROR", ex.getMessage());
-      LOGGER.info(ex.getMessage(), ex);
-      setErrorMessage(ex.getMessage());
-      setRunningState(RunningState.ERROR);
-    }
+      }         
+      
+      propertiesNeedUpdating = somethingChanged;    
   }
 
-  public synchronized void setup()
+  public synchronized void setup() throws Exception
   {
-    String errorMessage = null;
-    RunningState runningState = RunningState.STARTED;
-
-    try
-    {
       readProperties();
       if (propertiesNeedUpdating)
       {
@@ -198,18 +173,12 @@ public class AwsIoTHubOutboundTransport extends OutboundTransportBase implements
         propertiesNeedUpdating = false;
       }
 
-      // setup
-      isEventHubType = AwsIoTHubOutboundTransportDefinition.IOT_SERVICE_TYPE_EVENT_HUB.equals(iotServiceType);
+      // iot service type - Event Hub or Device
+      isEventHubType = AwsIoTServiceType.IOT_HUB.equals(iotServiceType);
       
       //AWS Event Hub       
       KeyStorePasswordPair pair = AwsIoTHubUtil.getKeyStorePasswordPair(x509Certificate, privateKey, null);
-      awsClient = new AWSIotMqttClient(clientEndpoint, deviceIdGedName , pair.keyStore, pair.keyPassword);
-      if (awsClient == null)
-      {
-        runningState = RunningState.ERROR;
-        errorMessage = LOGGER.translate("FAILED_TO_CREATE_EH_CLIENT", clientEndpoint);
-        LOGGER.error(errorMessage);
-      }        
+      awsClient = new AWSIotMqttClient(clientEndpoint, deviceIdFieldName , pair.keyStore, pair.keyPassword);           
       
       if (!isEventHubType)
       {         	
@@ -217,56 +186,44 @@ public class AwsIoTHubOutboundTransport extends OutboundTransportBase implements
     	geIoTDevice = new GEIoTDevice(deviceIdFieldName);
     	awsClient.attach(geIoTDevice);    	        
       }      
-      awsClient.connect();      
-
-      setErrorMessage(errorMessage);
-      setRunningState(runningState);
-    }
-    catch (Exception ex)
-    {
-      LOGGER.error("INIT_ERROR", ex.getMessage());
-      LOGGER.info(ex.getMessage(), ex);
-      setErrorMessage(ex.getMessage());
-      setRunningState(RunningState.ERROR);
-    }
+      awsClient.connect();    
   }
 
-  protected void cleanup()
+  @Override
+  public synchronized void stop()
+	{
+		setRunningState(RunningState.STOPPING);
+		cleanup();		
+		setRunningState(RunningState.STOPPED);
+	}
+  
+  private void cleanup()
   {
-    // clean up the aws hub client       
-	  if (awsClient != null)
+    // clean up the aws hub client       	  
+	  try
       {
-        try
-        {
-        	if (geIoTDevice !=null) {       
-        		awsClient.detach(geIoTDevice);        		
-        		geIoTDevice.delete();
-        	}
-        	awsClient.disconnect();        
-        }
-        catch (Exception e)
-        {
-          LOGGER.warn("CLEANUP_ERROR", e);
-        }
-        geIoTDevice = null;
-        awsClient = null;
-      }             
+	         if (awsClient != null)
+	         {	        	
+	        	if (geIoTDevice !=null) {       
+	        		awsClient.detach(geIoTDevice);        		
+	        		geIoTDevice.delete();
+	        	}
+	        	awsClient.disconnect();
+	         }
+      }
+      catch (Exception e)
+      {
+        LOGGER.error("CLEANUP_ERROR", e);            		  
+		setErrorMessage(e.getMessage());  		  
+      }finally {
+	    geIoTDevice = null;
+	    awsClient = null;
+      }                   
   }
 
   @Override
   public void receive(ByteBuffer buffer, String channelId)
-  {
-    receive(buffer, channelId, null);
-  }
-
-  @Override
-  public void receive(ByteBuffer buffer, String channelId, GeoEvent geoEvent)
-  {
-    if (isRunning())
-    {
-      if (geoEvent == null)
-        return;
-
+  {         
       try
       {
     	// Send Event to an Event Hub
@@ -286,13 +243,9 @@ public class AwsIoTHubOutboundTransport extends OutboundTransportBase implements
         }
         else
         {
-          // Send Event to a Device - update shadow
-          Object deviceIdObj = geoEvent.getField(deviceIdFieldName);
-          String deviceId = "";
-          if (deviceIdObj != null)
-            deviceId = deviceIdObj.toString();
-
-          if (Validator.isNotBlank(deviceId))
+          // Send Event to a Device - update shadow          
+          String deviceId = deviceIdFieldName;
+          if (deviceId != null & Validator.isNotBlank(deviceId))
           {     
         	geIoTDevice.delete(); // delete shadow
             geIoTDevice.update(iotMessage, 5000); // update device state
@@ -305,16 +258,11 @@ public class AwsIoTHubOutboundTransport extends OutboundTransportBase implements
       }
       catch (Exception e)
       {
-        // streamClient.stop();
-        setErrorMessage(e.getMessage());
+        // streamClient.stop();        
         LOGGER.error(e.getMessage(), e);
+        setErrorMessage(e.getMessage());
         setRunningState(RunningState.ERROR);
-      }
-    }
-    else
-    {
-      LOGGER.debug("RECEIVED_BUFFER_WHEN_STOPPED", "");
-    }
+      }    
   }
 
   /*
