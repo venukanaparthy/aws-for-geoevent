@@ -1,4 +1,4 @@
-<transport name="AWSIoTMqttInboundTransport"
+<transport name="AwsIoTHubInboundTransport"
 	label="${com.esri.geoevent.transport.aws-transport.TRANSPORT_IN_LBL}"
 	contact="yourname@yourcompany.com" version="10.4.0"
 	domain="com.esri.geoevent.transport.aws.inbound" type="inbound">
@@ -9,31 +9,31 @@
 		<propertyDefinition propertyName="iotservicetype"
 			label="${com.esri.geoevent.transport.aws-transport.IOT_SERVICE_TYPE_LBL}"
 			description="${com.esri.geoevent.transport.aws-transport.IOT_SERVICE_TYPE_DESC}"
-			propertyType="String" defaultValue="${com.esri.geoevent.transport.aws-transport.IOT_SERVICE_TYPE_LBL}" mandatory="true"					
+			propertyType="String" defaultValue="IOT_TOPIC" mandatory="true"					
 			readOnly="false" />
 							
 		<propertyDefinition propertyName="deviceid"
 			label="${com.esri.geoevent.transport.aws-transport.TRANSPORT_IN_DEVICE_ID_LBL}"
 			description="${com.esri.geoevent.transport.aws-transport.TRANSPORT_IN_DEVICE_ID_DESC}"
-			propertyType="String" defaultValue="MyGEDeviceIn" mandatory="false"
+			propertyType="String" defaultValue="MyLightBlub" mandatory="false"
 			readOnly="false" />
 				
 		<propertyDefinition propertyName="endpoint"
-			label="${com.esri.geoevent.transport.aws-transport.TRANSPORT_IN_HOST_LBL}"
-			description="${com.esri.geoevent.transport.aws-transport.TRANSPORT_IN_HOST_DESC}"
+			label="${com.esri.geoevent.transport.aws-transport.TRANSPORT_IN_ENDPOINT_LBL}"
+			description="${com.esri.geoevent.transport.aws-transport.TRANSPORT_IN_ENDPOINT_DESC}"
 			propertyType="String" defaultValue="A1OAECNIGB9KXE.iot.us-west-2.amazonaws.com" mandatory="true"
 			readOnly="false" />
 							
 		<propertyDefinition propertyName="X509certificate"
 			label="${com.esri.geoevent.transport.aws-transport.TRANSPORT_IN_CERT_LBL}"
 			description="${com.esri.geoevent.transport.aws-transport.TRANSPORT_IN_CERT_DESC}"
-			propertyType="String" defaultValue="C:/Users/venu4461/cert.pem" mandatory="true"
+			propertyType="String" defaultValue="C:/temp/certs/cert.pem" mandatory="true"
 			readOnly="false" />
 			
 		<propertyDefinition propertyName="privateKey"
 			label="${com.esri.geoevent.transport.aws-transport.TRANSPORT_IN_PRIVATEKEY_LBL}"
 			description="${com.esri.geoevent.transport.aws-transport.TRANSPORT_IN_PRIVATEKEY_DESC}"
-			propertyType="String" defaultValue="C:/Users/venu4461/private.pem" mandatory="true"
+			propertyType="String" defaultValue="C:/tmp/certs/private.pem" mandatory="true"
 			readOnly="false" />						
 			
 		<propertyDefinition propertyName="topic"

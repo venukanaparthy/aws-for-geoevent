@@ -1,5 +1,9 @@
 package com.esri.geoevent.transport.aws;
 
+import com.amazonaws.services.iot.client.AWSIotMessage;
+import com.amazonaws.services.iot.client.AWSIotMqttClient;
+import com.esri.geoevent.transport.aws.AwsIoTHubUtil.KeyStorePasswordPair;
+
 import junit.framework.Test;
 import junit.framework.TestCase;
 import junit.framework.TestSuite;
@@ -10,6 +14,11 @@ import junit.framework.TestSuite;
 public class AppTest 
     extends TestCase
 {
+	
+	/*private AWSIotMqttClient _mqttClient 		= null;
+	private AWSIotMessage _awsIotMessage 		= null;
+	private KeyStorePasswordPair _ksp 			= null;*/
+	
     /**
      * Create the test case
      *
@@ -26,6 +35,14 @@ public class AppTest
     public static Test suite()
     {
         return new TestSuite( AppTest.class );
+    }
+    
+    @Override
+    protected void setUp(){    	
+    }
+    
+    protected void tearDown(){
+    	
     }
 
     /**

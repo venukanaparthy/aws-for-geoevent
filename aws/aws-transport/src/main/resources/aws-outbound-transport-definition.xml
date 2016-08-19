@@ -1,4 +1,4 @@
-<transport name="AWSIoTMqttOutboundTransport"
+<transport name="AWSIoTHubOutboundTransport"
 	label="${com.esri.geoevent.transport.aws-transport.TRANSPORT_OUT_LBL}" contact="yourname@yourcompany.com"
 	version="10.4.0" domain="com.esri.geoevent.transport.aws.outbound"
 	type="outbound">
@@ -8,13 +8,13 @@
 		<propertyDefinition propertyName="iotservicetype"
 			label="${com.esri.geoevent.transport.aws-transport.IOT_SERVICE_TYPE_LBL}"
 			description="${com.esri.geoevent.transport.aws-transport.IOT_SERVICE_TYPE_DESC}"
-			propertyType="String" defaultValue="${com.esri.geoevent.transport.aws-transport.IOT_SERVICE_TYPE_LBL}" mandatory="true"					
+			propertyType="String" defaultValue="IOT_TOPIC" mandatory="true"					
 			readOnly="false" />
 		
 		<propertyDefinition propertyName="deviceid"
 			label="${com.esri.geoevent.transport.aws-transport.TRANSPORT_OUT_DEVICE_ID_LBL}"
 			description="${com.esri.geoevent.transport.aws-transport.TRANSPORT_OUT_DEVICE_ID_DESC}"
-			propertyType="String" defaultValue="MyGEDeviceOut" mandatory="false"
+			propertyType="String" defaultValue="MyLightBlub" mandatory="false"
 			readOnly="false" />		
 			
 		<propertyDefinition propertyName="endpoint"

@@ -66,7 +66,7 @@ public class AwsIoTHubInboundTransport extends InboundTransportBase implements R
   private volatile boolean          propertiesNeedUpdating = false;
   
   public enum AwsIoTServiceType {
-	  IOT_HUB,
+	  IOT_TOPIC,
 	  IOT_DEVICE
    };
 
@@ -119,7 +119,7 @@ public class AwsIoTHubInboundTransport extends InboundTransportBase implements R
       }
 
       // Setup
-      isEventHubType = AwsIoTServiceType.IOT_HUB.equals(iotServiceType);
+      isEventHubType = AwsIoTServiceType.IOT_TOPIC.equals(iotServiceType);
       
       //AWS Event Hub       
       KeyStorePasswordPair pair = AwsIoTHubUtil.getKeyStorePasswordPair(x509Certificate, privateKey, null);

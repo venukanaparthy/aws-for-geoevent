@@ -38,12 +38,34 @@
       <version>2.7.4</version>
     </dependency>
   </dependencies>
+  <build>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.felix</groupId>
+				<artifactId>maven-bundle-plugin</artifactId>
+				<extensions>true</extensions>
+				<configuration>
+					<instructions>
+						<Bundle-SymbolicName>${project.groupId}.${project.artifactId}</Bundle-SymbolicName>
+						<Bundle-ContactAddress>${contact.address}</Bundle-ContactAddress>
+						<Bundle-Version>${project.version}</Bundle-Version>
+						<Export-Package/>
+						<Embed-Dependency>
+							*;scope=compile|runtime;inline=true
+						</Embed-Dependency>
+						<Private-Package>com.esri.geoevent.transport.aws</Private-Package>
+					</instructions>
+				</configuration>
+			</plugin>
+		</plugins>
+	</build>
+	<!-- 
    <build>
     <plugins>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.3</version><!--$NO-MVN-MAN-VER$ -->
+        <version>3.3</version>
         <configuration>
           <source>1.8</source>
           <target>1.8</target>
@@ -52,7 +74,7 @@
       <plugin>
         <groupId>org.apache.felix</groupId>
         <artifactId>maven-bundle-plugin</artifactId>
-        <version>3.0.0</version><!--$NO-MVN-MAN-VER$ -->
+        <version>3.0.0</version>
         <extensions>true</extensions>
         <configuration>
           <instructions>
@@ -76,4 +98,5 @@
       </plugin>
     </plugins>
   </build>
+   -->
 </project>
