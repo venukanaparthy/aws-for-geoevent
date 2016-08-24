@@ -27,11 +27,13 @@ package com.esri.geoevent.transport.aws;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 
+import com.amazonaws.services.iot.client.AWSIotException;
 import com.amazonaws.services.iot.client.AWSIotMessage;
 import com.amazonaws.services.iot.client.AWSIotMqttClient;
 import com.amazonaws.services.iot.client.AWSIotQos;
 import com.esri.geoevent.transport.aws.AwsIoTHubUtil.KeyStorePasswordPair;
 import com.esri.ges.core.component.ComponentException;
+import com.esri.ges.core.component.RunningException;
 import com.esri.ges.core.component.RunningState;
 import com.esri.ges.framework.i18n.BundleLogger;
 import com.esri.ges.framework.i18n.BundleLoggerFactory;
@@ -58,13 +60,13 @@ public class AwsIoTHubOutboundTransport extends OutboundTransportBase
   private boolean                   isEventHubType         = true;
 
   // device id client and receiver
-  private static GEIoTDevice 		geIoTDevice			   = null;
+  private AwsIoTHubDevice 	geIoTDevice			   = null;
   // event hub client
-  AWSIotMqttClient 					awsClient			   = null;
-  AWSIotMessage 					iotMessage			   = null;	
+  private AWSIotMqttClient 					awsClient			   = null;
+  private AWSIotMessage 					iotMessage			   = null;	
   
   public enum AwsIoTServiceType {
-	  IOT_HUB,
+	  IOT_TOPIC,
 	  IOT_DEVICE
    };
 
@@ -74,19 +76,11 @@ public class AwsIoTHubOutboundTransport extends OutboundTransportBase
   }
 
   @Override
-  public synchronized void start()
+  public void start() throws RunningException
   {
-	try{ 	  
-    switch (getRunningState())
-    {
-      case STARTING:
-      case STARTED:
-        return;
-      default:
-    }
-
+	try{ 	     
     setRunningState(RunningState.STARTING);
-    setup();
+    connectToAwsEventHub();
     setRunningState(RunningState.STARTED);
     
 	}catch(Exception e){
@@ -96,7 +90,7 @@ public class AwsIoTHubOutboundTransport extends OutboundTransportBase
 	}
   }
 
-  private void readProperties()
+  private void applyProperties()
   {  
       boolean somethingChanged = false;
 
@@ -164,9 +158,9 @@ public class AwsIoTHubOutboundTransport extends OutboundTransportBase
       propertiesNeedUpdating = somethingChanged;    
   }
 
-  public synchronized void setup() throws Exception
+  private void connectToAwsEventHub() throws AWSIotException
   {
-      readProperties();
+      applyProperties();
       if (propertiesNeedUpdating)
       {
         cleanup();
@@ -174,7 +168,7 @@ public class AwsIoTHubOutboundTransport extends OutboundTransportBase
       }
 
       // iot service type - Event Hub or Device
-      isEventHubType = AwsIoTServiceType.IOT_HUB.equals(iotServiceType);
+      isEventHubType = AwsIoTServiceType.IOT_TOPIC.toString().equals(iotServiceType);
       
       //AWS Event Hub       
       KeyStorePasswordPair pair = AwsIoTHubUtil.getKeyStorePasswordPair(x509Certificate, privateKey, null);
@@ -183,10 +177,16 @@ public class AwsIoTHubOutboundTransport extends OutboundTransportBase
       if (!isEventHubType)
       {         	
         // IoT Device
-    	geIoTDevice = new GEIoTDevice(deviceIdFieldName);
+    	geIoTDevice = new AwsIoTHubDevice(deviceIdFieldName);
     	awsClient.attach(geIoTDevice);    	        
       }      
+      
       awsClient.connect();    
+      
+      //delete existing shawdow if any
+      if(geIoTDevice != null){
+    	  geIoTDevice.delete();
+      }
   }
 
   @Override
@@ -202,14 +202,14 @@ public class AwsIoTHubOutboundTransport extends OutboundTransportBase
     // clean up the aws hub client       	  
 	  try
       {
-	         if (awsClient != null)
+		  if (awsClient != null)
 	         {	        	
 	        	if (geIoTDevice !=null) {       
 	        		awsClient.detach(geIoTDevice);        		
-	        		geIoTDevice.delete();
+	        		geIoTDevice.delete(5000);
 	        	}
-	        	awsClient.disconnect();
-	         }
+	        	awsClient.disconnect(5000);
+	         }	         
       }
       catch (Exception e)
       {
@@ -268,7 +268,7 @@ public class AwsIoTHubOutboundTransport extends OutboundTransportBase
   /*
    * Non-blocking Publish Listener
    */
-  public final class AWSIoTPublishListener extends AWSIotMessage {
+  private final class AWSIoTPublishListener extends AWSIotMessage {
 
 	    public AWSIoTPublishListener(String topic, AWSIotQos qos, byte [] payload) {
 	        super(topic, qos, payload);

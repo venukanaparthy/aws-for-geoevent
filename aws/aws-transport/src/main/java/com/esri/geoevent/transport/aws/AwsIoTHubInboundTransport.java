@@ -25,6 +25,8 @@ package com.esri.geoevent.transport.aws;
 
 import java.nio.BufferOverflowException;
 import java.nio.ByteBuffer;
+
+import com.amazonaws.services.iot.client.AWSIotException;
 import com.amazonaws.services.iot.client.AWSIotMessage;
 import com.amazonaws.services.iot.client.AWSIotMqttClient;
 import com.amazonaws.services.iot.client.AWSIotQos;
@@ -59,7 +61,7 @@ public class AwsIoTHubInboundTransport extends InboundTransportBase implements R
   
   // data members
   private AWSIotMqttClient 			awsClient			   = null;
-  private static GEIoTDevice 		geIoTDevice			   = null;
+  private AwsIoTHubDevice 			geIoTDevice			   = null;
   
   private String                    errorMessage;
   private Thread					thread				   = null;
@@ -76,7 +78,7 @@ public class AwsIoTHubInboundTransport extends InboundTransportBase implements R
   }
 
   @SuppressWarnings("incomplete-switch")
-  public synchronized void start() throws RunningException
+  public void start() throws RunningException
 	{
 		try
 		{
@@ -100,18 +102,18 @@ public class AwsIoTHubInboundTransport extends InboundTransportBase implements R
   
   
   @Override
-  public synchronized void run() {
-	  setup();
+  public void run() {
+	  connectToAwsEventHub();
   }
   
-  public synchronized void setup()
+  private void connectToAwsEventHub()
   {
     String errorMessage = null;
     RunningState runningState = RunningState.STARTED;
 
     try
     {
-      readProperties();
+      applyProperties();
       if (propertiesNeedUpdating)
       {
         cleanup();
@@ -119,11 +121,12 @@ public class AwsIoTHubInboundTransport extends InboundTransportBase implements R
       }
 
       // Setup
-      isEventHubType = AwsIoTServiceType.IOT_TOPIC.equals(iotServiceType);
+      isEventHubType = AwsIoTServiceType.IOT_TOPIC.toString().equals(iotServiceType);
       
       //AWS Event Hub       
       KeyStorePasswordPair pair = AwsIoTHubUtil.getKeyStorePasswordPair(x509Certificate, privateKey, null);
       awsClient = new AWSIotMqttClient(clientEndpoint, deviceIdFieldName , pair.keyStore, pair.keyPassword);
+      
       if (awsClient == null)
       {
         runningState = RunningState.ERROR;
@@ -134,16 +137,27 @@ public class AwsIoTHubInboundTransport extends InboundTransportBase implements R
       if (!isEventHubType)
       {         	
         // IoT Device
-    	geIoTDevice = new GEIoTDevice(deviceIdFieldName);
+    	geIoTDevice = new AwsIoTHubDevice(deviceIdFieldName);
     	awsClient.attach(geIoTDevice);    	      
       }      
       awsClient.connect();
+      
+      //delete existing shawdow if any
+      if(geIoTDevice != null){
+    	  geIoTDevice.delete();
+      }
       
       AWSIotTopic topic = new AwsIoTTopicListener(topicName, AWSIotQos.QOS0);
       awsClient.subscribe(topic, true);
 
       setErrorMessage(errorMessage);
       setRunningState(runningState);
+    }
+    catch (AWSIotException iote)
+    {
+      LOGGER.error("AWSIOT_INIT_ERROR", iote);      
+      setErrorMessage(iote.getMessage());
+      setRunningState(RunningState.ERROR);
     }
     catch (Exception ex)
     {
@@ -170,9 +184,9 @@ public class AwsIoTHubInboundTransport extends InboundTransportBase implements R
         {
         	if (geIoTDevice != null) {       
         		awsClient.detach(geIoTDevice);
-        		geIoTDevice.delete();
+        		geIoTDevice.delete(5000);
         	}
-        	awsClient.disconnect();        
+        	awsClient.disconnect(5000);        
         }
         catch (Exception e)
         {
@@ -185,19 +199,7 @@ public class AwsIoTHubInboundTransport extends InboundTransportBase implements R
       }    
   }
 
-  @Override
-  public void validate()
-  {
-    // TODO: Validate
-  }
-
-  @Override
-  public synchronized boolean isRunning()
-  {
-    return (getRunningState() == RunningState.STARTED);
-  }
-
-  private void readProperties() throws Exception
+  private void applyProperties() throws Exception
   {    
       boolean somethingChanged = false;
             
