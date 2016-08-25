@@ -23,9 +23,10 @@
  */
 package com.esri.geoevent.transport.aws;
 
+import java.math.BigInteger;
 import java.nio.BufferOverflowException;
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
+import java.security.SecureRandom;
 
 import com.amazonaws.services.iot.client.AWSIotException;
 import com.amazonaws.services.iot.client.AWSIotMessage;
@@ -48,8 +49,7 @@ public class AwsIoTHubInboundTransport extends InboundTransportBase implements R
 
   // logger
   private static final BundleLogger LOGGER                 = BundleLoggerFactory.getLogger(AwsIoTHubInboundTransport.class);
-  
-  private static final long 		DEVICE_SHADOW_POLL_INTERVAL =  5000; //milliseconds
+    
   // transport properties 
   private boolean                   isEventHubType         = true;
   private String                    iotServiceType         = "";
@@ -62,9 +62,9 @@ public class AwsIoTHubInboundTransport extends InboundTransportBase implements R
   private String 					topicName			   = "";
   
   // data members
+  private String					clientId			   = null;	
   private AWSIotMqttClient 			awsClient			   = null;
   private AwsIoTHubDevice 			geIoTDevice			   = null;
-  private AWSIotMessage 			iotMessage			   = null;	
   private AWSIotTopic               iotTopic			   = null;	
   private String                    errorMessage;
   private Thread					thread				   = null;
@@ -129,7 +129,8 @@ public class AwsIoTHubInboundTransport extends InboundTransportBase implements R
       KeyStorePasswordPair pair = AwsIoTHubUtil.getKeyStorePasswordPair(x509Certificate, privateKey, null);
       
       //create AwsClient
-      awsClient = new AWSIotMqttClient(clientEndpoint, deviceIdFieldName , pair.keyStore, pair.keyPassword);      
+      clientId = String.format("%s-%s", deviceIdFieldName, new BigInteger(128, new SecureRandom()).toString(32));
+      awsClient = new AWSIotMqttClient(clientEndpoint, clientId, pair.keyStore, pair.keyPassword);      
       if (awsClient == null)
       {
         runningState = RunningState.ERROR;
@@ -140,12 +141,15 @@ public class AwsIoTHubInboundTransport extends InboundTransportBase implements R
       //attach device
       if (!isEventHubType)
       {         	
+    	LOGGER.info(System.currentTimeMillis() +  ": ClientId: " +": Attaching device:" + geIoTDevice.getThingName());
     	geIoTDevice = new AwsIoTHubDevice(deviceIdFieldName);
     	awsClient.attach(geIoTDevice);    	      
       }      
       
       //connect
+      LOGGER.info(System.currentTimeMillis() +  ": ClientId: " + clientId +": Connecting"); 
       awsClient.connect();
+      LOGGER.info(System.currentTimeMillis() +  ": ClientId: " + clientId +": Connected");      
       
       //delete existing shawdow if any
       /*if(geIoTDevice != null){
@@ -189,11 +193,15 @@ public class AwsIoTHubInboundTransport extends InboundTransportBase implements R
       {
         try
         {
-        	if (geIoTDevice != null) {       
+        	if (geIoTDevice != null) {     
+        		LOGGER.info(System.currentTimeMillis() +  ": ClientId: " + clientId + ": Detaching device:" + geIoTDevice.getThingName());        		
         		awsClient.detach(geIoTDevice);
+        		LOGGER.info(System.currentTimeMillis() +  ": ClientId: " + clientId + ": Detached device:" + geIoTDevice.getThingName());        		
         		//geIoTDevice.delete(5000);
-        	}
-        	awsClient.disconnect(5000);        
+        	}        	
+        	LOGGER.info(System.currentTimeMillis() +  ": ClientId: " + clientId + ": Disconnecting");
+        	awsClient.disconnect(5000);             	
+        	LOGGER.info(System.currentTimeMillis() +  ": ClientId: " + clientId + ": Disconnected");
         }
         catch (Exception e)
         {
@@ -205,6 +213,7 @@ public class AwsIoTHubInboundTransport extends InboundTransportBase implements R
         } 
       }    
   }
+  
 
   private void applyProperties() throws Exception
   {    
@@ -319,7 +328,7 @@ public class AwsIoTHubInboundTransport extends InboundTransportBase implements R
 
       @Override
       public void onMessage(AWSIotMessage message) {          
-          LOGGER.info(System.currentTimeMillis() + ": subscribe success for: " + this.topic + " >>> " + message.getStringPayload());
+          LOGGER.info(System.currentTimeMillis() +  ": ClientId: " + clientId + ": subscribe success for: " + this.topic + " >>> " + message.getStringPayload());
           receive(message.getPayload());  
       }
   }

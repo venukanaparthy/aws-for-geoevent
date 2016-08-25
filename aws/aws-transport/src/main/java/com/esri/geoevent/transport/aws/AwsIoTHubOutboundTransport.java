@@ -24,14 +24,15 @@
 
 package com.esri.geoevent.transport.aws;
 
+import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.security.SecureRandom;
 
 import com.amazonaws.services.iot.client.AWSIotException;
 import com.amazonaws.services.iot.client.AWSIotMessage;
 import com.amazonaws.services.iot.client.AWSIotMqttClient;
 import com.amazonaws.services.iot.client.AWSIotQos;
-import com.amazonaws.services.iot.client.AWSIotTopic;
 import com.esri.geoevent.transport.aws.AwsIoTHubUtil.KeyStorePasswordPair;
 import com.esri.ges.core.component.ComponentException;
 import com.esri.ges.core.component.RunningException;
@@ -61,8 +62,9 @@ public class AwsIoTHubOutboundTransport extends OutboundTransportBase
   private boolean                   isEventHubType         = true;
 
   // device id client and receiver
-  private AwsIoTHubDevice 			geIoTDevice			   = null;
+  private AwsIoTHubDevice 					geIoTDevice	   = null;
   // event hub client
+  private String							clientId	   = null;	
   private AWSIotMqttClient 					awsClient	   = null;
   private AWSIotMessage 					iotMessage	   = null;	
   
@@ -175,18 +177,22 @@ public class AwsIoTHubOutboundTransport extends OutboundTransportBase
       KeyStorePasswordPair pair = AwsIoTHubUtil.getKeyStorePasswordPair(x509Certificate, privateKey, null);
       
       //create AwsClient
-      awsClient = new AWSIotMqttClient(clientEndpoint, deviceIdFieldName , pair.keyStore, pair.keyPassword);
+      clientId = String.format("%s-%s", deviceIdFieldName, new BigInteger(128, new SecureRandom()).toString(32));
+      awsClient = new AWSIotMqttClient(clientEndpoint, clientId , pair.keyStore, pair.keyPassword);
       
       //attach device
       if (!isEventHubType)
-      {         	
-        // IoT Device
+      {         	    	
+        // IoT Device attach
     	geIoTDevice = new AwsIoTHubDevice(deviceIdFieldName);
+    	LOGGER.info(System.currentTimeMillis() +  ": ClientId: " + clientId + ": Attaching device:" + geIoTDevice.getThingName());
     	awsClient.attach(geIoTDevice);    	        
       }      
       
       //connect to Aws IoT Hub
+      LOGGER.info(System.currentTimeMillis() +  ": ClientId: " + clientId +": Connecting");
       awsClient.connect();    
+      LOGGER.info(System.currentTimeMillis() +  ": ClientId: " + clientId + ": Connected");
       
       //delete existing shawdow if any
       /*if(geIoTDevice != null){
@@ -209,11 +215,15 @@ public class AwsIoTHubOutboundTransport extends OutboundTransportBase
       {
 		  if (awsClient != null)
 	         {	        	
-	        	if (geIoTDevice !=null) {       
+	        	if (geIoTDevice !=null) {      
+	        		LOGGER.info(System.currentTimeMillis() +  ": ClientId: " + clientId + ": detaching device: " + geIoTDevice.getThingName());
 	        		awsClient.detach(geIoTDevice);        		
+	        		LOGGER.info(System.currentTimeMillis() +  ": ClientId: " + clientId + ": detached device: " + geIoTDevice.getThingName());
 	        		//geIoTDevice.delete(5000);
 	        	}
+	        	LOGGER.info(System.currentTimeMillis() +  ": ClientId: " + clientId + ": disconnecting");
 	        	awsClient.disconnect(5000);
+	        	LOGGER.info(System.currentTimeMillis() +  ": ClientId: " + clientId + ": disconnected");
 	         }	         
       }
       catch (Exception e)
@@ -239,6 +249,7 @@ public class AwsIoTHubOutboundTransport extends OutboundTransportBase
         if (isEventHubType)
         {                                      
           if (awsClient != null){
+        	  LOGGER.info(System.currentTimeMillis() +  ": ClientId: " + clientId + ": publishing to topic : " + this.topicName + ", message:  >>> " + message);        	  
         	  awsClient.publish(iotMessage);
           }
           else
@@ -253,6 +264,7 @@ public class AwsIoTHubOutboundTransport extends OutboundTransportBase
           if (deviceId != null & Validator.isNotBlank(deviceId))
           {     
         	//geIoTDevice.delete(); // delete shadow
+        	LOGGER.info(System.currentTimeMillis() +  ": ClientId: " + clientId + ": updating the device state");
             geIoTDevice.update(iotMessage, 10000); // update device state
           }
           else
@@ -282,17 +294,17 @@ public class AwsIoTHubOutboundTransport extends OutboundTransportBase
 
 	    @Override
 	    public void onSuccess() {	        
-	        LOGGER.info(System.currentTimeMillis() + "publish success for: " + this.topic + " >>> " + getStringPayload());	        
+	        LOGGER.info(System.currentTimeMillis() +  ": ClientId: " + clientId + ": publish success for: " + this.topic + " >>> " + getStringPayload());	        
 	    }
 
 	    @Override
 	    public void onFailure() {	        
-	        LOGGER.info(System.currentTimeMillis() + "publish failed for: " + this.topic + " >>> " + getStringPayload());
+	        LOGGER.info(System.currentTimeMillis() +  ": ClientId: " + clientId +": publish failed for: " + this.topic + " >>> " + getStringPayload());
 	    }
 
 	    @Override
 	    public void onTimeout() {	        
-	        LOGGER.info(System.currentTimeMillis() + "publish timeout for: " + this.topic + " >>> " + getStringPayload());
+	        LOGGER.info(System.currentTimeMillis() +  ": ClientId: " + clientId +": publish timeout for: " + this.topic + " >>> " + getStringPayload());
 	    }
 
 	}
