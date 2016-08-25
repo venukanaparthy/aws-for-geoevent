@@ -31,6 +31,7 @@ import com.amazonaws.services.iot.client.AWSIotException;
 import com.amazonaws.services.iot.client.AWSIotMessage;
 import com.amazonaws.services.iot.client.AWSIotMqttClient;
 import com.amazonaws.services.iot.client.AWSIotQos;
+import com.amazonaws.services.iot.client.AWSIotTopic;
 import com.esri.geoevent.transport.aws.AwsIoTHubUtil.KeyStorePasswordPair;
 import com.esri.ges.core.component.ComponentException;
 import com.esri.ges.core.component.RunningException;
@@ -60,10 +61,10 @@ public class AwsIoTHubOutboundTransport extends OutboundTransportBase
   private boolean                   isEventHubType         = true;
 
   // device id client and receiver
-  private AwsIoTHubDevice 	geIoTDevice			   = null;
+  private AwsIoTHubDevice 			geIoTDevice			   = null;
   // event hub client
-  private AWSIotMqttClient 					awsClient			   = null;
-  private AWSIotMessage 					iotMessage			   = null;	
+  private AWSIotMqttClient 					awsClient	   = null;
+  private AWSIotMessage 					iotMessage	   = null;	
   
   public enum AwsIoTServiceType {
 	  IOT_TOPIC,
@@ -167,13 +168,16 @@ public class AwsIoTHubOutboundTransport extends OutboundTransportBase
         propertiesNeedUpdating = false;
       }
 
-      // iot service type - Event Hub or Device
+      // iot service type - IOT_TOPIC | IOT_DEVICE
       isEventHubType = AwsIoTServiceType.IOT_TOPIC.toString().equals(iotServiceType);
       
-      //AWS Event Hub       
+      //get KeyStore credentials            
       KeyStorePasswordPair pair = AwsIoTHubUtil.getKeyStorePasswordPair(x509Certificate, privateKey, null);
-      awsClient = new AWSIotMqttClient(clientEndpoint, deviceIdFieldName , pair.keyStore, pair.keyPassword);           
       
+      //create AwsClient
+      awsClient = new AWSIotMqttClient(clientEndpoint, deviceIdFieldName , pair.keyStore, pair.keyPassword);
+      
+      //attach device
       if (!isEventHubType)
       {         	
         // IoT Device
@@ -181,12 +185,13 @@ public class AwsIoTHubOutboundTransport extends OutboundTransportBase
     	awsClient.attach(geIoTDevice);    	        
       }      
       
+      //connect to Aws IoT Hub
       awsClient.connect();    
       
       //delete existing shawdow if any
-      if(geIoTDevice != null){
+      /*if(geIoTDevice != null){
     	  geIoTDevice.delete();
-      }
+      }*/
   }
 
   @Override
@@ -206,7 +211,7 @@ public class AwsIoTHubOutboundTransport extends OutboundTransportBase
 	         {	        	
 	        	if (geIoTDevice !=null) {       
 	        		awsClient.detach(geIoTDevice);        		
-	        		geIoTDevice.delete(5000);
+	        		//geIoTDevice.delete(5000);
 	        	}
 	        	awsClient.disconnect(5000);
 	         }	         
@@ -228,7 +233,7 @@ public class AwsIoTHubOutboundTransport extends OutboundTransportBase
       {
     	// Send Event to an Event Hub
         String message = new String(buffer.array(), StandardCharsets.UTF_8);
-        byte[] bytes = message.getBytes(StandardCharsets.UTF_8); // "UTF_8"
+        byte[] bytes = message.getBytes(StandardCharsets.UTF_8);
     	iotMessage = new AWSIoTPublishListener(topicName, AWSIotQos.QOS0, bytes);
     	 
         if (isEventHubType)
@@ -243,12 +248,12 @@ public class AwsIoTHubOutboundTransport extends OutboundTransportBase
         }
         else
         {
-          // Send Event to a Device - update shadow          
+          //update shadow          
           String deviceId = deviceIdFieldName;
           if (deviceId != null & Validator.isNotBlank(deviceId))
           {     
-        	geIoTDevice.delete(); // delete shadow
-            geIoTDevice.update(iotMessage, 5000); // update device state
+        	//geIoTDevice.delete(); // delete shadow
+            geIoTDevice.update(iotMessage, 10000); // update device state
           }
           else
           {
@@ -265,8 +270,9 @@ public class AwsIoTHubOutboundTransport extends OutboundTransportBase
       }    
   }
 
-  /*
-   * Non-blocking Publish Listener
+  /**
+   * AWSIoTPublishListener class extends {@link AWSIotMessage} to publish messages to a
+   * topic.
    */
   private final class AWSIoTPublishListener extends AWSIotMessage {
 
@@ -275,18 +281,18 @@ public class AwsIoTHubOutboundTransport extends OutboundTransportBase
 	    }
 
 	    @Override
-	    public void onSuccess() {
-	        System.out.println(System.currentTimeMillis() + ": >>> " + getStringPayload());
+	    public void onSuccess() {	        
+	        LOGGER.info(System.currentTimeMillis() + "publish success for: " + this.topic + " >>> " + getStringPayload());	        
 	    }
 
 	    @Override
-	    public void onFailure() {
-	        System.out.println(System.currentTimeMillis() + ": publish failed for " + getStringPayload());
+	    public void onFailure() {	        
+	        LOGGER.info(System.currentTimeMillis() + "publish failed for: " + this.topic + " >>> " + getStringPayload());
 	    }
 
 	    @Override
-	    public void onTimeout() {
-	        System.out.println(System.currentTimeMillis() + ": publish timeout for " + getStringPayload());
+	    public void onTimeout() {	        
+	        LOGGER.info(System.currentTimeMillis() + "publish timeout for: " + this.topic + " >>> " + getStringPayload());
 	    }
 
 	}

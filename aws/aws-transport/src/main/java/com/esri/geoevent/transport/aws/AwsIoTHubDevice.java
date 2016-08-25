@@ -11,7 +11,7 @@ import com.amazonaws.services.iot.client.AWSIotDeviceProperty;
  */
 public class AwsIoTHubDevice extends AWSIotDevice {
 
-	 private enum MyBulbStatus {
+	 /*private enum MyBulbStatus {
 		  ON(0),
 		  OFF(1),
 		  BLINK(2),
@@ -25,13 +25,13 @@ public class AwsIoTHubDevice extends AWSIotDevice {
 		  int getState(){
 			  return _state;
 		  }
-	   }
+	   }*/
 
 	public AwsIoTHubDevice(String thingName) {
 		super(thingName);	
 	}
 	
-	  @AWSIotDeviceProperty
+	  /*@AWSIotDeviceProperty
 	  private String bulbState;
 	  
 	  public String getBulbState() {		  		
@@ -53,5 +53,5 @@ public class AwsIoTHubDevice extends AWSIotDevice {
 	  public void setBulbState(String desiredState) {
 		  System.out.println(System.currentTimeMillis() + " <<< desired bulb state to " + (desiredState));
 		  this.bulbState = MyBulbStatus.valueOf(desiredState).toString();
-	  }
+	  }*/
 }

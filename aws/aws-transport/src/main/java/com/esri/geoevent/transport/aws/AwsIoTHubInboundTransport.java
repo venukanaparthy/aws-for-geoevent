@@ -25,6 +25,7 @@ package com.esri.geoevent.transport.aws;
 
 import java.nio.BufferOverflowException;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 
 import com.amazonaws.services.iot.client.AWSIotException;
 import com.amazonaws.services.iot.client.AWSIotMessage;
@@ -48,6 +49,7 @@ public class AwsIoTHubInboundTransport extends InboundTransportBase implements R
   // logger
   private static final BundleLogger LOGGER                 = BundleLoggerFactory.getLogger(AwsIoTHubInboundTransport.class);
   
+  private static final long 		DEVICE_SHADOW_POLL_INTERVAL =  5000; //milliseconds
   // transport properties 
   private boolean                   isEventHubType         = true;
   private String                    iotServiceType         = "";
@@ -62,7 +64,8 @@ public class AwsIoTHubInboundTransport extends InboundTransportBase implements R
   // data members
   private AWSIotMqttClient 			awsClient			   = null;
   private AwsIoTHubDevice 			geIoTDevice			   = null;
-  
+  private AWSIotMessage 			iotMessage			   = null;	
+  private AWSIotTopic               iotTopic			   = null;	
   private String                    errorMessage;
   private Thread					thread				   = null;
   private volatile boolean          propertiesNeedUpdating = false;
@@ -99,8 +102,7 @@ public class AwsIoTHubInboundTransport extends InboundTransportBase implements R
 			stop();
 		}
 	}
-  
-  
+    
   @Override
   public void run() {
 	  connectToAwsEventHub();
@@ -120,13 +122,14 @@ public class AwsIoTHubInboundTransport extends InboundTransportBase implements R
         propertiesNeedUpdating = false;
       }
 
-      // Setup
+      //iot service type: IOT_TOPIC|IOT_DEVICE
       isEventHubType = AwsIoTServiceType.IOT_TOPIC.toString().equals(iotServiceType);
       
-      //AWS Event Hub       
+      //Get KeyStore credentials       
       KeyStorePasswordPair pair = AwsIoTHubUtil.getKeyStorePasswordPair(x509Certificate, privateKey, null);
-      awsClient = new AWSIotMqttClient(clientEndpoint, deviceIdFieldName , pair.keyStore, pair.keyPassword);
       
+      //create AwsClient
+      awsClient = new AWSIotMqttClient(clientEndpoint, deviceIdFieldName , pair.keyStore, pair.keyPassword);      
       if (awsClient == null)
       {
         runningState = RunningState.ERROR;
@@ -134,22 +137,26 @@ public class AwsIoTHubInboundTransport extends InboundTransportBase implements R
         LOGGER.error(errorMessage);
       }        
       
+      //attach device
       if (!isEventHubType)
       {         	
-        // IoT Device
     	geIoTDevice = new AwsIoTHubDevice(deviceIdFieldName);
     	awsClient.attach(geIoTDevice);    	      
       }      
+      
+      //connect
       awsClient.connect();
       
       //delete existing shawdow if any
-      if(geIoTDevice != null){
-    	  geIoTDevice.delete();
-      }
+      /*if(geIoTDevice != null){
+    	  geIoTDevice.delete(10000);
+      }*/
       
-      AWSIotTopic topic = new AwsIoTTopicListener(topicName, AWSIotQos.QOS0);
-      awsClient.subscribe(topic, true);
-
+      //register topic handler
+	  iotTopic = new AwsIoTTopicListener(topicName, AWSIotQos.QOS0);
+      awsClient.subscribe(iotTopic, true);  
+      LOGGER.info("Subscribed to topic:" + topicName); 
+      
       setErrorMessage(errorMessage);
       setRunningState(runningState);
     }
@@ -184,7 +191,7 @@ public class AwsIoTHubInboundTransport extends InboundTransportBase implements R
         {
         	if (geIoTDevice != null) {       
         		awsClient.detach(geIoTDevice);
-        		geIoTDevice.delete(5000);
+        		//geIoTDevice.delete(5000);
         	}
         	awsClient.disconnect(5000);        
         }
@@ -311,11 +318,38 @@ public class AwsIoTHubInboundTransport extends InboundTransportBase implements R
       }
 
       @Override
-      public void onMessage(AWSIotMessage message) {
-          System.out.println(System.currentTimeMillis() + ": <<< " + message.getStringPayload());
-          receive(message.getPayload());
+      public void onMessage(AWSIotMessage message) {          
+          LOGGER.info(System.currentTimeMillis() + ": subscribe success for: " + this.topic + " >>> " + message.getStringPayload());
+          receive(message.getPayload());  
       }
   }
+    
+  /**
+   * AWSIoTShadowMessageListener class extends {@link AWSIotMessage} to receive messages from a device 
+   * shadow.
+   */
+ /* private final class AWSIoTShadowMessageListener extends AWSIotMessage {
+
+	    public AWSIoTShadowMessageListener(String topic, AWSIotQos qos) {
+	        super(topic, qos);
+	    }
+
+	    @Override
+	    public void onSuccess() {	        
+	        LOGGER.info(System.currentTimeMillis() + ": >>> Get shadown request success: " + this.topic + " >>> " + getStringPayload());
+	        receive(getPayload());
+	    }
+
+	    @Override
+	    public void onFailure() {	        
+	        LOGGER.error(System.currentTimeMillis() + ": >>> Get shadown request failure: " + this.topic +  " >>> " + getStringPayload());
+	    }
+
+	    @Override
+	    public void onTimeout() {	        
+	        LOGGER.error(System.currentTimeMillis() + ": >>> Get shadown request timeout: " + this.topic + " >>> " + getStringPayload());
+	    }
+	}*/
 
   @Override
   public String getStatusDetails()
