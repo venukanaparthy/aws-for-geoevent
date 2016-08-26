@@ -1,11 +1,11 @@
-# Microsoft Azure Connectors
+# Microsoft Aws Connectors
 
-ArcGIS 10.4.x GeoEvent Extension Sample Azure connectors for connecting to Microsoft Azure Hubs and Devices.
+ArcGIS 10.4.x GeoEvent Extension Sample Aws connectors for connecting to Amazon IoT Hubs and Devices.
 
-![App](azure-for-geoevent.png?raw=true)
+![App](aws-for-geoevent.png?raw=true)
 
 ## Features
-* Azure Transport and Connectors
+* Aws Transport and Connectors
 
 ## Instructions
 
