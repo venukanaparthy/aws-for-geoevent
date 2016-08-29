@@ -1,4 +1,4 @@
-# Microsoft Aws Connectors
+# AWS Connector
 
 ArcGIS 10.4.x GeoEvent Extension Sample Aws connectors for connecting to Amazon IoT Hubs and Devices.
 
